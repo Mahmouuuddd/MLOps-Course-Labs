@@ -8,8 +8,11 @@ import matplotlib.pyplot as plt
 from sklearn.utils import resample
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
 from sklearn.compose import make_column_transformer
-from sklearn.preprocessing import OneHotEncoder,  StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -20,6 +23,8 @@ from sklearn.metrics import (
 )
 
 ### Import MLflow
+import mlflow
+import mlflow.sklearn
 
 def rebalance(data):
     """
@@ -107,69 +112,132 @@ def preprocess(df):
     X_test = pd.DataFrame(X_test, columns=col_transf.get_feature_names_out())
 
     # Log the transformer as an artifact
+    import joblib 
+    import os
+    transformer_path = "column_transformer.pkl"
+    joblib.dump(col_transf, transformer_path)
+    mlflow.log_artifact(transformer_path)
 
     return col_transf, X_train, X_test, y_train, y_test
 
 
-def train(X_train, y_train):
+def train(X_train, y_train, model_class, hyperparameters):
     """
-    Train a logistic regression model.
+    Train a machine learning model.
 
     Args:
         X_train (pd.DataFrame): DataFrame with features
         y_train (pd.Series): Series with target
+        model_class: The Class of the model to train (e.g. LogisticRegression)
+        hyperparameters (dict): The arguments for the model
 
     Returns:
-        LogisticRegression: trained logistic regression model
+        model: trained model instance
     """
-    log_reg = LogisticRegression(max_iter=1000)
-    log_reg.fit(X_train, y_train)
+    model = model_class(**hyperparameters)
+    model.fit(X_train, y_train)
 
     ### Log the model with the input and output schema
     # Infer signature (input and output schema)
+    signature = mlflow.models.infer_signature(X_train, model.predict(X_train))
 
     # Log model
+    mlflow.sklearn.log_model(
+        sk_model=model,
+        artifact_path="churn_model",
+        signature=signature
+    )
 
     ### Log the data
+    train_df = X_train.copy()
+    train_df['Exited'] = y_train
+    
+    train_dataset = mlflow.data.from_pandas(
+        train_df, targets="Exited", name="churn_training_data"
+    )
+    mlflow.log_input(train_dataset, context="training")
 
-    return log_reg
+    return model
 
 
 def main():
     ### Set the tracking URI for MLflow
+    mlflow.set_tracking_uri("http://127.0.0.1:5000")
 
     ### Set the experiment name
+    mlflow.set_experiment("churn_models_comparison")
 
+    model_configs = [
+        {
+            "name": "Logistic_Regression",
+            "class": LogisticRegression,
+            "params": {"max_iter": 1000, "solver": "lbfgs", "C": 1.0}
+        },
+        {
+            "name": "Decision_Tree",
+            "class": DecisionTreeClassifier,
+            "params": {"max_depth": 5, "min_samples_split": 5, "random_state": 42}
+        },
+        {
+            "name": "Random_Forest",
+            "class": RandomForestClassifier,
+            "params": {"n_estimators": 50, "max_depth": 10, "random_state": 42}
+        },
+        {
+            "name": "SVM_Classifier",
+            "class": SVC,
+            "params": {"kernel": "rbf", "C": 1.0, "random_state": 42}
+        }
+    ]
 
-    ### Start a new run and leave all the main function code as part of the experiment
+    for config in model_configs:
+        run_name = f"Run_{config['name']}"
+        print(f"Starting training for: {config['name']}")
 
-    df = pd.read_csv("data/Churn_Modelling.csv")
-    col_transf, X_train, X_test, y_train, y_test = preprocess(df)
+        ### Start a new run and leave all the main function code as part of the experiment
+        with mlflow.start_run(run_name=run_name):
+            
+            # Ensure correct path to data
+            try:
+                df = pd.read_csv("./dataset/Churn_Modelling.csv")
+            except FileNotFoundError:
+                import os
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                data_path = os.path.join(current_dir, "..", "data", "Churn_Modelling.csv")
+                df = pd.read_csv(data_path)
 
-    ### Log the max_iter parameter
+            col_transf, X_train, X_test, y_train, y_test = preprocess(df)
 
-    model = train(X_train, y_train)
+            ### Log the hyperparameters
+            mlflow.log_params(config['params'])
 
-    
-    y_pred = model.predict(X_test)
+            # Pass the specific class and params to train
+            model = train(X_train, y_train, config['class'], config['params'])
+            
+            y_pred = model.predict(X_test)
 
-    ### Log metrics after calculating them
+            ### Log metrics after calculating them
+            mlflow.log_metric("accuracy", accuracy_score(y_test, y_pred))
+            mlflow.log_metric("precision", precision_score(y_test, y_pred))
+            mlflow.log_metric("recall", recall_score(y_test, y_pred))
+            mlflow.log_metric("f1", f1_score(y_test, y_pred))
 
+            ### Log tag
+            mlflow.set_tag("model_type", config['name'])
+            mlflow.set_tag("author", "Marwan")
 
-    ### Log tag
-
-
-    
-    conf_mat = confusion_matrix(y_test, y_pred, labels=model.classes_)
-    conf_mat_disp = ConfusionMatrixDisplay(
-        confusion_matrix=conf_mat, display_labels=model.classes_
-    )
-    conf_mat_disp.plot()
-    
-    # Log the image as an artifact in MLflow
-    
-    plt.show()
-
+            conf_mat = confusion_matrix(y_test, y_pred, labels=model.classes_)
+            conf_mat_disp = ConfusionMatrixDisplay(
+                confusion_matrix=conf_mat, display_labels=model.classes_
+            )
+            conf_mat_disp.plot()
+            
+            # Log the image as an artifact in MLflow
+            plot_path = f"confusion_matrix_{config['name']}.png"
+            plt.savefig(plot_path)
+            mlflow.log_artifact(plot_path)
+            
+            plt.show() 
 
 if __name__ == "__main__":
     main()
