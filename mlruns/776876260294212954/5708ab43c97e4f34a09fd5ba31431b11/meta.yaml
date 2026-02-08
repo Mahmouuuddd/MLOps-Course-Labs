@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/776876260294212954/5708ab43c97e4f34a09fd5ba31431b11/artifacts
+end_time: 1770581470033
+entry_point_name: ''
+experiment_id: '776876260294212954'
+lifecycle_stage: active
+run_id: 5708ab43c97e4f34a09fd5ba31431b11
+run_name: Run_Decision_Tree
+run_uuid: 5708ab43c97e4f34a09fd5ba31431b11
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770581462871
+status: 3
+tags: []
+user_id: youss

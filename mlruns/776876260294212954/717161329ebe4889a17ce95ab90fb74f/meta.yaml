@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/776876260294212954/717161329ebe4889a17ce95ab90fb74f/artifacts
+end_time: 1770581486661
+entry_point_name: ''
+experiment_id: '776876260294212954'
+lifecycle_stage: active
+run_id: 717161329ebe4889a17ce95ab90fb74f
+run_name: Run_SVM_Classifier
+run_uuid: 717161329ebe4889a17ce95ab90fb74f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770581477240
+status: 3
+tags: []
+user_id: youss
