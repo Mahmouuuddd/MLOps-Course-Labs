@@ -1,24 +1,69 @@
-"""
-Model loading and prediction logic.
+"""Model loading and prediction logic.
 
 The model must be loaded ONCE at module level, NOT inside the predict function.
 """
 
-# TODO 1: Load your serialized churn model from data/model.joblib
-model = ...
+import joblib
+import pandas as pd
+
+# Ensure scikit-learn is downgraded to 1.6.1 before running!
+model = joblib.load(r"D:\Python\MLOps-Course-Labs\artifacts\model.pkl")
+preprocessor = joblib.load(
+    r"D:\Python\MLOps-Course-Labs\artifacts\preprocessor.pkl"
+)
 
 
-def predict_churn(features: list[float]) -> int:
+def predict_churn(features: list) -> int:
+    """Takes a list of RAW feature values, converts them to a Pandas DataFrame,
+
+    scales/encodes them via the preprocessor, and returns a churn prediction (0 or 1).
     """
-    Takes a list of feature values and returns a churn prediction (0 or 1).
-    """
-    # TODO 2: Use model.predict() to get a prediction and return it as an int
-    #         Hint: model.predict() expects a 2D array
-    pass
+    # 1. Map the list items to the exact column names the training pipeline expects
+    column_names = [
+        "CreditScore",
+        "Age",
+        "Tenure",
+        "Balance",
+        "NumOfProducts",
+        "HasCrCard",
+        "IsActiveMember",
+        "EstimatedSalary",
+        "Geography",
+        "Gender",
+    ]
+
+    # 2. Convert the single raw list into a clean 2D Pandas DataFrame (1 row)
+    raw_df = pd.DataFrame([features], columns=column_names)
+
+    # 3. Preprocessor automatically scales numbers and one-hot encodes text strings via DataFrame headers
+    processed_features = preprocessor.transform(raw_df)
+
+    # 4. Pass the processed matrix to the model
+    prediction = model.predict(processed_features)
+
+    return int(prediction[0])
 
 
 if __name__ == "__main__":
-    # TODO 3: Replace with sample features that match your model
-    sample = []
-    print(f"Input:      {sample}")
-    print(f"Prediction: {predict_churn(sample)}")
+    # 1. Define sample using RAW fields expected by the preprocessor pipeline.
+    # Order: [CreditScore, Age, Tenure, Balance, NumOfProducts, HasCrCard, IsActiveMember, EstimatedSalary, Geography, Gender]
+    raw_sample = [
+        619,  # CreditScore
+        42,  # Age
+        2,  # Tenure
+        0.0,  # Balance
+        1,  # NumOfProducts
+        1,  # HasCrCard
+        1,  # IsActiveMember
+        101348.88,  # EstimatedSalary
+        "France",  # Geography
+        "Female",  # Gender
+    ]
+
+    print(f"Raw Input Payload: {raw_sample}")
+
+    try:
+        result = predict_churn(raw_sample)
+        print(f"Prediction Result: {result}")
+    except Exception as e:
+        print(f"\n[Execution Error]: {e}")
