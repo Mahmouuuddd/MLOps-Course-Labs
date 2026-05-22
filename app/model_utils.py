@@ -7,10 +7,9 @@ import joblib
 import pandas as pd
 
 # Ensure scikit-learn is downgraded to 1.6.1 before running!
-model = joblib.load(r"D:\Python\MLOps-Course-Labs\artifacts\model.pkl")
-preprocessor = joblib.load(
-    r"D:\Python\MLOps-Course-Labs\artifacts\preprocessor.pkl"
-)
+# Update these lines inside app/model_utils.py to match your container structure:
+model = joblib.load("artifacts/model.pkl")
+preprocessor = joblib.load("artifacts/preprocessor.pkl")
 
 
 def predict_churn(features: list) -> int:
