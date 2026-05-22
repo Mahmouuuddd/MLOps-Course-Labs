@@ -23,8 +23,9 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 
 # Copy your local application source code files into the container image
+COPY app ./app
+COPY artifacts ./artifacts
 COPY main.py main.py
-COPY app/ app/
 
 # Place the virtual environment's executable paths at the front of the system PATH
 ENV PATH="/app/.venv/bin:$PATH"
